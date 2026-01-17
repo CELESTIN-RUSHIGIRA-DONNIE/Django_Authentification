@@ -18,6 +18,22 @@ def register_view(request):
         email = request.POST.get("email")
         password = request.POST.get("password")
         confirm_password = request.POST.get("confirm_password")
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Nom d'utilisateur déjà pris.")
+            return redirect("register")
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "Email déjà utilisé.")
+            return redirect("register")
+        if not username.isalnum():
+            messages.error(request, "Le nom d'utilisateur ne doit contenir que des caractères alphanumériques.")
+            return redirect("register")
+        
+        if password != confirm_password:
+            messages.error(request, "Les mots de passe ne correspondent pas.")
+            return redirect("register")
+        
+
         mon_utilisateur = User.objects.create(username=username, email=email, password=password)
         mon_utilisateur.username = username
         mon_utilisateur.email = email
