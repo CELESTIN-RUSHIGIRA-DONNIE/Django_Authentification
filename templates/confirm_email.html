@@ -1,0 +1,9 @@
+{% autoescape off %}
+
+Bienvenue {{ user }} ,
+Merci de vous être inscrit sur notre site. 
+Veuillez cliquer sur le lien ci-dessous 
+pour confirmer votre adresse email et activer votre compte :
+https://{{ domain }}{% url 'activate' uid=uid token=token %}
+
+{% endautoescape %}

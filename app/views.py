@@ -1,10 +1,17 @@
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode  # on n'importe ceci pour la gestion des tokens
+from django.utils.encoding import force_bytes, force_text  # on n'importe ceci pour la gestion des tokens
+from django.template.loader import render_to_string  # on importe ceci pour rendre les templates d'email
+from django.contrib.sites.shortcuts import get_current_site  # on importe ceci pour obtenir le site courant
+
 from Authentification import settings 
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.contrib.auth.models import User # ici on importe le modèle User pour gérer les utilisateurs
 from django.contrib import messages # ici on importe le module messages pour afficher des messages à l'utilisateur
 from django.contrib.auth import authenticate, login, logout
-from django.core.mail import send_mail # on importe la fonction send_mail pour envoyer des emails
+from django.core.mail import send_mail, EmailMessage
+
+from app.token import TokenGenerator # on importe la fonction send_mail pour envoyer des emails
 
 
 
@@ -39,15 +46,31 @@ def register_view(request):
         mon_utilisateur.username = username
         mon_utilisateur.email = email
         mon_utilisateur.set_password(password)
+
+        mon_utilisateur.is_active = False  # Désactive le compte jusqu'à la confirmation par email
+
         mon_utilisateur.save()
         messages.success(request, "Utilisateur créé avec succès.")
         
+        # Envoi d'un email de bienvenue
         subject = "Bienvenue sur notre site"
-        message = f"Merci de vous être inscrit sur notre site, {mon_utilisateur}. \nNous sommes ravis de vous avoir parmi nous ! \n\nCordialement,\nL'équipe du site."
+        message = f"Merci de vous être inscrit sur notre site, cher(e) {mon_utilisateur}. \nNous sommes ravis de vous avoir parmi nous ! \n\nCordialement,\nL'équipe du site."
         from_email = settings.EMAIL_HOST_USER
         to_list = [mon_utilisateur.email]
         send_mail(subject, message, from_email, to_list, fail_silently=True)  #fail_silently=True pour éviter les erreurs d'envoi d'email en développement
-        
+
+        #Email de confirmation d'inscription (optionnel)
+        current_site = get_current_site(request)
+        email_subject = "Confirmez votre adresse email"
+        message_confirm = render_to_string("app/confirm_email.html", {
+            "user": mon_utilisateur,
+            "domain": current_site.domain,
+            "uid": urlsafe_base64_encode(force_bytes(mon_utilisateur.pk)),
+            "token": TokenGenerator().make_token(mon_utilisateur),
+        })
+        email_message = EmailMessage(email_subject, message_confirm, settings.EMAIL_HOST_USER, [mon_utilisateur.email])
+        email_message.fail_silently = False
+        email_message.send()
 
         return redirect("login")
     return render(request, "app/register.html")
@@ -71,3 +94,19 @@ def logout_view(request):
     logout(request)
     messages.success(request, "Vous avez été déconnecté avec succès.")
     return redirect("login")
+
+
+def activate(request, uidb64, token):
+    try:
+        uid = force_text(urlsafe_base64_decode(uidb64))
+        mon_utilisateur = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        mon_utilisateur = None
+
+    if mon_utilisateur is not None and TokenGenerator().check_token(mon_utilisateur, token):
+        mon_utilisateur.is_active = True
+        mon_utilisateur.save()
+        messages.success(request, "Votre compte a été activé avec succès.")
+        return redirect("login")
+    else:
+        return HttpResponse("Lien d'activation invalide.")
