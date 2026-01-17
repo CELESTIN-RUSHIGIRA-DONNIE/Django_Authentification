@@ -1,9 +1,10 @@
+from Authentification import settings 
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.contrib.auth.models import User # ici on importe le modèle User pour gérer les utilisateurs
 from django.contrib import messages # ici on importe le module messages pour afficher des messages à l'utilisateur
 from django.contrib.auth import authenticate, login, logout
-
+from django.core.mail import send_mail # on importe la fonction send_mail pour envoyer des emails
 
 
 
@@ -40,6 +41,14 @@ def register_view(request):
         mon_utilisateur.set_password(password)
         mon_utilisateur.save()
         messages.success(request, "Utilisateur créé avec succès.")
+        
+        subject = "Bienvenue sur notre site"
+        message = f"Merci de vous être inscrit sur notre site, {mon_utilisateur}. \nNous sommes ravis de vous avoir parmi nous ! \n\nCordialement,\nL'équipe du site."
+        from_email = settings.EMAIL_HOST_USER
+        to_list = [mon_utilisateur.email]
+        send_mail(subject, message, from_email, to_list, fail_silently=True)  #fail_silently=True pour éviter les erreurs d'envoi d'email en développement
+        
+
         return redirect("login")
     return render(request, "app/register.html")
 
