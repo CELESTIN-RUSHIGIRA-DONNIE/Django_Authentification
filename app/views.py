@@ -62,7 +62,7 @@ def register_view(request):
         #Email de confirmation d'inscription (optionnel)
         current_site = get_current_site(request)
         email_subject = "Confirmez votre adresse email"
-        message_confirm = render_to_string("app/confirm_email.html", {
+        message_confirm = render_to_string("confirm_email.html", {
             "user": mon_utilisateur,
             "domain": current_site.domain,
             "uid": urlsafe_base64_encode(force_bytes(mon_utilisateur.pk)),
@@ -81,10 +81,15 @@ def login_view(request):
        username = request.POST.get("username")
        password = request.POST.get("password")
        user = authenticate(username=username, password=password)
+       my_user = User.objects.get(username=username)
+
        if user is not None:
            login(request, user)
            username = user.username
            return render(request, "app/index.html", {"username": username})
+       elif my_user.is_active == False:
+           messages.error(request, "Compte inactif. Veuillez vérifier votre email pour l'activer.")
+           return redirect("login")
        else:
            messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
            return redirect("login")
@@ -109,4 +114,5 @@ def activate(request, uidb64, token):
         messages.success(request, "Votre compte a été activé avec succès.")
         return redirect("login")
     else:
-        return HttpResponse("Lien d'activation invalide.")
+        messages.error(request, "Le lien d'activation est invalide.")
+        return redirect("register")
