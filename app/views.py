@@ -11,7 +11,7 @@ from django.contrib import messages # ici on importe le module messages pour aff
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail, EmailMessage
 
-from app.token import TokenGenerator # on importe la fonction send_mail pour envoyer des emails
+from . token import token_generator 
 
 
 
@@ -66,7 +66,7 @@ def register_view(request):
             "user": mon_utilisateur,
             "domain": current_site.domain,
             "uid": urlsafe_base64_encode(force_bytes(mon_utilisateur.pk)),
-            "token": TokenGenerator().make_token(mon_utilisateur),
+            "token": token_generator.make_token(mon_utilisateur),
         })
         email_message = EmailMessage(email_subject, message_confirm, settings.EMAIL_HOST_USER, [mon_utilisateur.email])
         email_message.fail_silently = False
@@ -108,7 +108,7 @@ def activate(request, uidb64, token):
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         mon_utilisateur = None
 
-    if mon_utilisateur is not None and TokenGenerator().check_token(mon_utilisateur, token):
+    if mon_utilisateur is not None and token_generator.check_token(mon_utilisateur, token):
         mon_utilisateur.is_active = True
         mon_utilisateur.save()
         messages.success(request, "Votre compte a été activé avec succès.")
